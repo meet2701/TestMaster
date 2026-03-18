@@ -1,3 +1,5 @@
+"""Bank class managing game funds, loans, and financial transactions."""
+
 from moneypoly.config import BANK_STARTING_FUNDS
 
 

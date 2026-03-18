@@ -1,5 +1,6 @@
-from moneypoly.game import Game
+"""Entry point for the MoneyPoly board game."""
 
+from moneypoly.game import Game
 
 def get_player_names():
     print("Enter player names separated by commas (minimum 2 players):")

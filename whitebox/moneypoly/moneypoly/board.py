@@ -1,3 +1,5 @@
+"""Board class representing the MoneyPoly game board and tile management."""
+
 from moneypoly.property import Property, PropertyGroup
 from moneypoly.config import (
     JAIL_POSITION,

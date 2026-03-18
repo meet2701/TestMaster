@@ -1,3 +1,5 @@
+"""Defines the Player class representing individual players in MoneyPoly."""
+
 from moneypoly.config import STARTING_BALANCE, BOARD_SIZE, GO_SALARY, JAIL_POSITION
 
 

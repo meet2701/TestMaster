@@ -1,3 +1,5 @@
+"""Defines Property and PropertyGroup classes for managing board properties in MoneyPoly."""
+
 class Property:
     """Represents a single purchasable property tile on the MoneyPoly board."""
 

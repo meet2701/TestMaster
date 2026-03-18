@@ -1,3 +1,5 @@
+"""Dice class for simulating dice rolls with doubles tracking."""
+
 import random
 
 class Dice:
