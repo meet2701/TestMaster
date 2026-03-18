@@ -64,6 +64,8 @@ class Property:
 
 
 class PropertyGroup:
+    """Groups related properties and tracks collective ownership."""
+    
     def __init__(self, name, color):
         self.name = name
         self.color = color
