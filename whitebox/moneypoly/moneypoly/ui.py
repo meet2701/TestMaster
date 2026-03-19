@@ -19,7 +19,7 @@ def print_player_card(player):
     print(f"  Position: {player.position}")
     print(jail_line, end="")
     if player.jail_status["get_out_of_jail_cards"]:
-        print(f"  Jail cards: {player.jail_status["get_out_of_jail_cards"]}")
+        print(f"  Jail cards: {player.jail_status['get_out_of_jail_cards']}")
     if player.properties:
         print("  Properties:")
         for prop in player.properties:

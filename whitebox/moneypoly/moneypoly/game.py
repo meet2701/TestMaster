@@ -168,7 +168,7 @@ class Game:
             print(f"  {prop.name} is already mortgaged.")
             return False
         player.add_money(payout)
-        self.bank.collect(-payout)
+        self.bank.pay_out(payout)
         print(f"  {player.name} mortgaged {prop.name} and received ${payout}.")
         return True
 
@@ -203,6 +203,7 @@ class Game:
             return False
 
         buyer.deduct_money(cash_amount)
+        seller.add_money(cash_amount)
         prop.owner = buyer
         seller.remove_property(prop)
         buyer.add_property(prop)
@@ -250,7 +251,7 @@ class Game:
 
     def _handle_jail_turn(self, player):
         """Process a jailed player's turn — offer to pay fine or use card."""
-        print(f"  {player.name} is in jail (turn {player.jail_status["jail_turns"] + 1}/3).")
+        print(f"  {player.name} is in jail (turn {player.jail_status['jail_turns'] + 1}/3).")
 
         # Use a Get Out of Jail Free card if available
         if player.jail_status["get_out_of_jail_cards"] > 0:
@@ -266,14 +267,18 @@ class Game:
 
         # Offer to pay the fine voluntarily
         if ui.confirm(f"  Pay ${JAIL_FINE} fine to leave jail? (y/n): "):
-            self.bank.collect(JAIL_FINE)
-            player.jail_status["in_jail"] = False
-            player.jail_status["jail_turns"] = 0
-            print(f"  {player.name} paid the ${JAIL_FINE} fine and is released.")
-            roll = self.dice.roll()
-            print(f"  {player.name} rolled: {self.dice.describe()}")
-            self._move_and_resolve(player, roll)
-            return
+            if player.balance < JAIL_FINE:
+                print(f"  {player.name} cannot afford the ${JAIL_FINE} fine.")
+            else:
+                player.deduct_money(JAIL_FINE)
+                self.bank.collect(JAIL_FINE)
+                player.jail_status["in_jail"] = False
+                player.jail_status["jail_turns"] = 0
+                print(f"  {player.name} paid the ${JAIL_FINE} fine and is released.")
+                roll = self.dice.roll()
+                print(f"  {player.name} rolled: {self.dice.describe()}")
+                self._move_and_resolve(player, roll)
+                return
 
         # No action
         # Serve the turn
@@ -366,9 +371,13 @@ class Game:
                 prop.is_mortgaged = False
             player.properties.clear()
             if player in self.players:
+                idx = self.players.index(player)
                 self.players.remove(player)
-            if self.game_state["current_index"] >= len(self.players):
-                self.game_state["current_index"] = 0
+                if idx <= self.game_state["current_index"]:
+                    self.game_state["current_index"] = max(0, self.game_state["current_index"]-1)
+
+                if self.game_state["current_index"] >= len(self.players):
+                    self.game_state["current_index"] = 0
 
     def find_winner(self):
         """Return the player with the highest net worth."""
