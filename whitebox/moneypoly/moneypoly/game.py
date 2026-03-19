@@ -24,29 +24,35 @@ class Game:
         self.bank = Bank()
         self.dice = Dice()
         self.players = [Player(name) for name in player_names]
-        self.current_index = 0
-        self.turn_number = 0
-        self.running = True
-        self.chance_deck = CardDeck(CHANCE_CARDS)
-        self.community_deck = CardDeck(COMMUNITY_CHEST_CARDS)
+        self.game_state = {
+            "current_index": 0,
+            "turn_number": 0,
+            "running": True,
+        }
+        self.decks = {
+            "chance": CardDeck(CHANCE_CARDS),
+            "community_chest": CardDeck(COMMUNITY_CHEST_CARDS),
+        }
 
     def current_player(self):
         """Return the Player whose turn it currently is."""
-        return self.players[self.current_index]
+        return self.players[self.game_state["current_index"]]
 
     def advance_turn(self):
         """Move to the next player in the rotation."""
-        self.current_index = (self.current_index + 1) % len(self.players)
-        self.turn_number += 1
+        self.game_state["current_index"] = (
+            self.game_state["current_index"] + 1) % len(self.players)
+        self.game_state["turn_number"] += 1
 
     def play_turn(self):
         """Execute one complete turn for the current player."""
         player = self.current_player()
         ui.print_banner(
-            f"Turn {self.turn_number + 1}  |  {player.name}  |  ${player.balance}"
+            f"Turn {self.game_state['turn_number'] + 1}  |  "
+            f"{player.name}  |  ${player.balance}"
         )
 
-        if player.in_jail:
+        if player.jail_status["in_jail"]:
             self._handle_jail_turn(player)
             self.advance_turn()
             return
@@ -71,48 +77,39 @@ class Game:
         self.advance_turn()
 
     def _move_and_resolve(self, player, steps):
-        """Move `player` by `steps` and trigger whatever tile they land on."""
+        """Move player by steps and resolve the tile they land on."""
         player.move(steps)
         position = player.position
         tile = self.board.get_tile_type(position)
         print(f"  {player.name} moved to position {position}  [{tile}]")
+        self._resolve_tile(player, tile, position)
+        self._check_bankruptcy(player)
 
+    def _resolve_tile(self, player, tile, position):
+        """Dispatch tile effect based on tile type."""
         if tile == "go_to_jail":
             player.go_to_jail()
             print(f"  {player.name} has been sent to Jail!")
-
         elif tile == "income_tax":
             player.deduct_money(INCOME_TAX_AMOUNT)
             self.bank.collect(INCOME_TAX_AMOUNT)
             print(f"  {player.name} paid income tax: ${INCOME_TAX_AMOUNT}.")
-
         elif tile == "luxury_tax":
             player.deduct_money(LUXURY_TAX_AMOUNT)
             self.bank.collect(LUXURY_TAX_AMOUNT)
             print(f"  {player.name} paid luxury tax: ${LUXURY_TAX_AMOUNT}.")
-
         elif tile == "free_parking":
             print(f"  {player.name} rests on Free Parking. Nothing happens.")
-
         elif tile == "chance":
-            card = self.chance_deck.draw()
+            card = self.decks["chance"].draw()
             self._apply_card(player, card)
-
         elif tile == "community_chest":
-            card = self.community_deck.draw()
+            card = self.decks["community_chest"].draw()
             self._apply_card(player, card)
-
-        elif tile == "railroad":
+        elif tile in ("railroad", "property"):
             prop = self.board.get_property_at(position)
             if prop is not None:
                 self._handle_property_tile(player, prop)
-
-        elif tile == "property":
-            prop = self.board.get_property_at(position)
-            if prop is not None:
-                self._handle_property_tile(player, prop)
-
-        self._check_bankruptcy(player)
 
 
     def _handle_property_tile(self, player, prop):
@@ -253,14 +250,14 @@ class Game:
 
     def _handle_jail_turn(self, player):
         """Process a jailed player's turn — offer to pay fine or use card."""
-        print(f"  {player.name} is in jail (turn {player.jail_turns + 1}/3).")
+        print(f"  {player.name} is in jail (turn {player.jail_status["jail_turns"] + 1}/3).")
 
         # Use a Get Out of Jail Free card if available
-        if player.get_out_of_jail_cards > 0:
+        if player.jail_status["get_out_of_jail_cards"] > 0:
             if ui.confirm("  Use your Get Out of Jail Free card? (y/n): "):
-                player.get_out_of_jail_cards -= 1
-                player.in_jail = False
-                player.jail_turns = 0
+                player.jail_status["get_out_of_jail_cards"] -= 1
+                player.jail_status["in_jail"] = False
+                player.jail_status["jail_turns"] = 0
                 print(f"  {player.name} used a Get Out of Jail Free card!")
                 roll = self.dice.roll()
                 print(f"  {player.name} rolled: {self.dice.describe()}")
@@ -270,8 +267,8 @@ class Game:
         # Offer to pay the fine voluntarily
         if ui.confirm(f"  Pay ${JAIL_FINE} fine to leave jail? (y/n): "):
             self.bank.collect(JAIL_FINE)
-            player.in_jail = False
-            player.jail_turns = 0
+            player.jail_status["in_jail"] = False
+            player.jail_status["jail_turns"] = 0
             print(f"  {player.name} paid the ${JAIL_FINE} fine and is released.")
             roll = self.dice.roll()
             print(f"  {player.name} rolled: {self.dice.describe()}")
@@ -280,14 +277,14 @@ class Game:
 
         # No action
         # Serve the turn
-        player.jail_turns += 1
-        if player.jail_turns >= 3:
+        player.jail_status["jail_turns"] += 1
+        if player.jail_status["jail_turns"] >= 3:
             # Mandatory release after 3 turns
             print(f"  {player.name} must leave jail. Paying mandatory ${JAIL_FINE} fine.")
             player.deduct_money(JAIL_FINE)
             self.bank.collect(JAIL_FINE)
-            player.in_jail = False
-            player.jail_turns = 0
+            player.jail_status["in_jail"] = False
+            player.jail_status["jail_turns"] = 0
             roll = self.dice.roll()
             print(f"  {player.name} rolled: {self.dice.describe()}")
             self._move_and_resolve(player, roll)
@@ -297,49 +294,66 @@ class Game:
         if card is None:
             return
         print(f"  Card drawn: \"{card['description']}\"")
+        handlers = {
+            "collect": self._handle_collect,
+            "pay": self._handle_pay,
+            "jail": self._handle_jail,
+            "jail_free": self._handle_jail_free,
+            "move_to": self._handle_move_to,
+            "birthday": self._handle_birthday,
+            "collect_from_all": self._handle_collect_from_all,
+        }
         action = card["action"]
-        value = card["value"]
+        handler = handlers.get(action)
+        if handler:
+            handler(player, card["value"])
 
-        if action == "collect":
-            amount = self.bank.pay_out(value)
-            player.add_money(amount)
+    def _handle_collect(self, player, value):
+        """Handle collect action from card."""
+        amount = self.bank.pay_out(value)
+        player.add_money(amount)
 
-        elif action == "pay":
-            player.deduct_money(value)
-            self.bank.collect(value)
+    def _handle_pay(self, player, value):
+        """Handle pay action from card."""
+        player.deduct_money(value)
+        self.bank.collect(value)
 
-        elif action == "jail":
-            player.go_to_jail()
-            print(f"  {player.name} has been sent to Jail!")
+    def _handle_jail(self, player, _value):
+        """Handle go to jail action from card."""
+        player.go_to_jail()
+        print(f"  {player.name} has been sent to Jail!")
 
-        elif action == "jail_free":
-            player.get_out_of_jail_cards += 1
-            print(f"  {player.name} now holds a Get Out of Jail Free card.")
+    def _handle_jail_free(self, player, _value):
+        """Handle get out of jail free card."""
+        player.jail_status["get_out_of_jail_cards"] += 1
+        print(f"  {player.name} now holds a Get Out of Jail Free card.")
 
-        elif action == "move_to":
-            old_pos = player.position
-            player.position = value
-            if value < old_pos:
-                player.add_money(GO_SALARY)
-                print(f"  {player.name} passed Go and collected ${GO_SALARY}.")
-            tile = self.board.get_tile_type(value)
-            if tile == "property":
-                prop = self.board.get_property_at(value)
-                if prop:
-                    self._handle_property_tile(player, prop)
+    def _handle_move_to(self, player, value):
+        """Handle move to specific position from card."""
+        old_pos = player.position
+        player.position = value
+        if value < old_pos:
+            player.add_money(GO_SALARY)
+            print(f"  {player.name} passed Go and collected ${GO_SALARY}.")
+        tile = self.board.get_tile_type(value)
+        if tile == "property":
+            prop = self.board.get_property_at(value)
+            if prop:
+                self._handle_property_tile(player, prop)
 
-        elif action == "birthday":
-            for other in self.players:
-                if other != player and other.balance >= value:
-                    other.deduct_money(value)
-                    player.add_money(value)
+    def _handle_birthday(self, player, value):
+        """Handle birthday collection from all players."""
+        for other in self.players:
+            if other != player and other.balance >= value:
+                other.deduct_money(value)
+                player.add_money(value)
 
-        elif action == "collect_from_all":
-            for other in self.players:
-                if other != player and other.balance >= value:
-                    other.deduct_money(value)
-                    player.add_money(value)
-
+    def _handle_collect_from_all(self, player, value):
+        """Handle collection from all other players."""
+        for other in self.players:
+            if other != player and other.balance >= value:
+                other.deduct_money(value)
+                player.add_money(value)
 
     def _check_bankruptcy(self, player):
         """Eliminate `player` from the game if they are bankrupt."""
@@ -353,8 +367,8 @@ class Game:
             player.properties.clear()
             if player in self.players:
                 self.players.remove(player)
-            if self.current_index >= len(self.players):
-                self.current_index = 0
+            if self.game_state["current_index"] >= len(self.players):
+                self.game_state["current_index"] = 0
 
     def find_winner(self):
         """Return the player with the highest net worth."""
@@ -369,7 +383,8 @@ class Game:
         for p in self.players:
             print(f"  {p.name} starts with ${p.balance}.")
 
-        while self.running and self.turn_number < MAX_TURNS:
+        while (self.game_state["running"] and
+               self.game_state["turn_number"] < MAX_TURNS):
             if len(self.players) <= 1:
                 break
             self.play_turn()
@@ -423,7 +438,7 @@ class Game:
             print("  No properties available to mortgage.")
             return
         for i, prop in enumerate(mortgageable):
-            print(f"  {i + 1}. {prop.name}  (value: ${prop.mortgage_value})")
+            print(f"  {i + 1}. {prop.name}  (value: ${prop.mortgage_value()})")
         idx = ui.safe_int_input("  Select: ", default=0) - 1
         if 0 <= idx < len(mortgageable):
             self.mortgage_property(player, mortgageable[idx])
@@ -435,7 +450,7 @@ class Game:
             print("  No mortgaged properties to redeem.")
             return
         for i, prop in enumerate(mortgaged):
-            cost = int(prop.mortgage_value * 1.1)
+            cost = int(prop.mortgage_value() * 1.1)
             print(f"  {i + 1}. {prop.name}  (cost to redeem: ${cost})")
         idx = ui.safe_int_input("  Select: ", default=0) - 1
         if 0 <= idx < len(mortgaged):

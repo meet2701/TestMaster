@@ -5,20 +5,28 @@ class Property:
 
     FULL_GROUP_MULTIPLIER = 2
 
-    def __init__(self, name, position, price, base_rent, group=None):
-        self.name = name
-        self.position = position
-        self.price = price
-        self.base_rent = base_rent
-        self.mortgage_value = price // 2
+    def __init__(self, config, group=None):
+        """
+        Initialize property from configuration dictionary.
+
+        Args:
+            config: Dict with keys 'name', 'position', 'price', 'base_rent'
+            group: Optional PropertyGroup this property belongs to
+        """
+        self.name = config['name']
+        self.position = config['position']
+        self.price = config['price']
+        self.base_rent = config['base_rent']
         self.owner = None
         self.is_mortgaged = False
-        self.houses = 0
-
         # Register with the group immediately on creation
         self.group = group
         if group is not None and self not in group.properties:
             group.properties.append(self)
+
+    def mortgage_value(self):
+        """Return the mortgage payout as half the purchase price."""
+        return self.price // 2
 
     def get_rent(self):
         """
@@ -40,7 +48,7 @@ class Property:
         if self.is_mortgaged:
             return 0
         self.is_mortgaged = True
-        return self.mortgage_value
+        return self.mortgage_value()
 
     def unmortgage(self):
         """
@@ -49,7 +57,7 @@ class Property:
         """
         if not self.is_mortgaged:
             return 0
-        cost = int(self.mortgage_value * 1.1)
+        cost = int(self.mortgage_value() * 1.1)
         self.is_mortgaged = False
         return cost
 
@@ -80,7 +88,7 @@ class PropertyGroup:
         """Return True if every property in this group is owned by `player`."""
         if player is None:
             return False
-        return any(p.owner == player for p in self.properties)
+        return all(p.owner == player for p in self.properties)
 
     def get_owner_counts(self):
         """Return a dict mapping each owner to how many properties they hold in this group."""
