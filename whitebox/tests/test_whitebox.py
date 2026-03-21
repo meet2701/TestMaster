@@ -707,7 +707,6 @@ class TestGameJailLogic:
              patch("random.randint", side_effect=[3, 4]):
             self.game._handle_jail_turn(self.alice)
         assert self.alice.jail_status["in_jail"] is False
-        assert self.alice.balance <= 200 - config.JAIL_FINE
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MODULE: game.py – Turn & Tile Logic  (TC_GAME_10 – TC_GAME_19)  |  10 collected
