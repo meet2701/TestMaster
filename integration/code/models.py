@@ -75,16 +75,6 @@ class DummyDriver:
 
 
 @dataclass
-class RaceOutcome:
-    outcome_id: str
-    race_id: str
-    position: int
-    prize_won: int
-    damage_percent: int
-    notes: str = ""
-
-
-@dataclass
 class Mission:
     mission_id: str
     name: str
@@ -115,7 +105,6 @@ class SystemState:
     inventory: Inventory = field(default_factory=Inventory)
 
     races: Dict[str, Race] = field(default_factory=dict)
-    outcomes: List[RaceOutcome] = field(default_factory=list)
 
     missions: Dict[str, Mission] = field(default_factory=dict)
     ledger: List[LedgerEntry] = field(default_factory=list)

@@ -40,22 +40,6 @@ def get_member(state: SystemState, name: str) -> CrewMember:
         raise NotFoundError(f"Crew member not found: {name}") from exc
 
 
-def is_registered(state: SystemState, name: str) -> bool:
-    return name in state.crew
-
-
-def set_role(state: SystemState, name: str, role: str) -> CrewMember:
-    registration.ensure_registered(state, name)
-
-    role = role.strip().lower()
-    if role not in VALID_ROLES:
-        raise ValidationError(f"Invalid role: {role}")
-
-    member = get_member(state, name)
-    member.role = role
-    return member
-
-
 def validate_driver(state: SystemState, name: str, *, require_available: bool = True) -> CrewMember:
     member = get_member(state, name)
     if member.role != "driver":

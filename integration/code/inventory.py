@@ -99,26 +99,6 @@ def set_carstatus(state: SystemState, car_id: str, carstatus: str) -> Car:
     return car
 
 
-def set_car_status(state: SystemState, car_id: str, status: str) -> Car:
-    if status not in CAR_STATUSES:
-        raise ValidationError(f"Invalid car status: {status}")
-    return set_carstatus(state, car_id, status)
-
-
-def set_car_available(state: SystemState, car_id: str, available: bool) -> Car:
-    """Backward-compatible shim.
-
-    Older modules used a boolean availability; map that onto status.
-    """
-
-    car = get_car(state, car_id)
-    if available:
-        car.carstatus = "Available" if car.condition > 0 else "Damaged"
-    else:
-        car.carstatus = "In Race"
-    return car
-
-
 def apply_damage(state: SystemState, car_id: str, damage_percent: int) -> Car:
     car = get_car(state, car_id)
     if damage_percent < 0 or damage_percent > 100:
