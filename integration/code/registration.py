@@ -12,16 +12,47 @@ from __future__ import annotations
 from models import CrewMember, SystemState, ValidationError
 
 
-def register_member(state: SystemState, name: str, role: str | None = None) -> CrewMember:
+def register_member(
+    state: SystemState,
+    name: str,
+    role: str | None = None,
+    *,
+    age: int | None = None,
+    experience: int | None = None,
+    skills: int | None = None,
+) -> CrewMember:
     name = name.strip()
     if not name:
         raise ValidationError("Name cannot be empty")
     if name in state.crew:
         raise ValidationError(f"Crew member already registered: {name}")
 
-    member = CrewMember(name=name, role=role)
+    if age is not None:
+        if age <= 0:
+            raise ValidationError("Age must be > 0")
+    if experience is not None:
+        if experience < 0 or experience > 100:
+            raise ValidationError("Experience must be between 0 and 100")
+    if skills is not None:
+        if skills < 0 or skills > 100:
+            raise ValidationError("Skills must be between 0 and 100")
+    if age is not None and experience is not None:
+        if experience >= age:
+            raise ValidationError("Experience must be less than age")
+
+    member = CrewMember(
+        name=name,
+        role=role,
+        age=age or 0,
+        experience=experience or 0,
+        skills=skills or 0,
+    )
     state.crew[name] = member
     return member
+
+
+def get_all_members(state: SystemState) -> list[CrewMember]:
+    return [state.crew[name] for name in sorted(state.crew.keys())]
 
 
 def ensure_registered(state: SystemState, name: str) -> None:

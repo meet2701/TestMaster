@@ -15,7 +15,22 @@ from models import CrewMember, NotFoundError, SystemState, ValidationError
 import registration
 
 
-VALID_ROLES = {"driver", "mechanic", "strategist"}
+VALID_ROLES = {"driver", "mechanic", "strategist", "spotter", "doctor"}
+
+
+def get_all_members(state: SystemState) -> list[CrewMember]:
+    return registration.get_all_members(state)
+
+
+def get_members_by_role(state: SystemState, role: str) -> list[CrewMember]:
+    role = role.strip().lower()
+    if role not in VALID_ROLES:
+        raise ValidationError(f"Invalid role: {role}")
+    return [m for m in get_all_members(state) if (m.role or "").strip().lower() == role]
+
+
+def get_member_details(state: SystemState, name: str) -> CrewMember:
+    return get_member(state, name)
 
 
 def get_member(state: SystemState, name: str) -> CrewMember:
