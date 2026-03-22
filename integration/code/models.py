@@ -29,6 +29,9 @@ class NotFoundError(StreetRaceError):
 class CrewMember:
     name: str
     role: Optional[str] = None  # e.g., driver, mechanic, strategist
+    age: int = 0
+    experience: int = 0  # 0..100
+    skills: int = 0  # 0..100
     skill_level: int = 1
     active: bool = True
 
@@ -38,7 +41,8 @@ class Car:
     car_id: str
     model: str
     condition: int = 100  # 0..100
-    available: bool = True
+    status: str = "Available"  # Available | In Race | Damaged
+    price: int = 0
 
 
 @dataclass
