@@ -2,7 +2,7 @@
 
 Responsibilities:
 - Track cars, parts, tools, and cash (cash is mutated via finance.py)
-- Manage car condition and availability
+- Manage car condition and status
 """
 
 from __future__ import annotations
@@ -10,15 +10,76 @@ from __future__ import annotations
 from models import Car, NotFoundError, SystemState, ValidationError
 
 
-def add_car(state: SystemState, model: str, *, condition: int = 100) -> Car:
+CAR_STATUSES = {"Available", "In Race", "Damaged"}
+
+
+def purchase_car(
+    state: SystemState,
+    model: str,
+    *,
+    condition: int = 100,
+    price: int,
+    status: str = "Available",
+) -> Car:
+    """Purchase a car and record the expense via finance.
+
+    This is the preferred integration entry point for buying cars.
+    """
+
+    if price < 0:
+        raise ValidationError("Car price cannot be negative")
+    if price > 0:
+        import finance  # local import to avoid a module-level circular dependency
+
+        finance.record_expense(state, price, reason=f"Car purchase: {model}")
+
+    return add_car(state, model, condition=condition, status=status, price=price)
+
+
+def purchase_part(state: SystemState, part_name: str, *, quantity: int, unit_price: int) -> None:
+    if unit_price < 0:
+        raise ValidationError("Unit price cannot be negative")
+    total = unit_price * quantity
+    if total > 0:
+        import finance  # local import to avoid a module-level circular dependency
+
+        finance.record_expense(state, total, reason=f"Part purchase: {part_name} x{quantity}")
+
+    add_part(state, part_name, quantity)
+
+
+def purchase_tool(state: SystemState, tool_name: str, *, quantity: int, unit_price: int) -> None:
+    if unit_price < 0:
+        raise ValidationError("Unit price cannot be negative")
+    total = unit_price * quantity
+    if total > 0:
+        import finance  # local import to avoid a module-level circular dependency
+
+        finance.record_expense(state, total, reason=f"Tool purchase: {tool_name} x{quantity}")
+
+    add_tool(state, tool_name, quantity)
+
+
+def add_car(
+    state: SystemState,
+    model: str,
+    *,
+    condition: int = 100,
+    status: str = "Available",
+    price: int = 0,
+) -> Car:
     model = model.strip()
     if not model:
         raise ValidationError("Car model cannot be empty")
     if condition < 0 or condition > 100:
         raise ValidationError("Car condition must be between 0 and 100")
+    if status not in CAR_STATUSES:
+        raise ValidationError(f"Invalid car status: {status}")
+    if price < 0:
+        raise ValidationError("Car price cannot be negative")
 
     car_id = state.new_id("car")
-    car = Car(car_id=car_id, model=model, condition=condition, available=True)
+    car = Car(car_id=car_id, model=model, condition=condition, status=status, price=price)
     state.inventory.cars[car_id] = car
     return car
 
@@ -30,9 +91,25 @@ def get_car(state: SystemState, car_id: str) -> Car:
         raise NotFoundError(f"Car not found: {car_id}") from exc
 
 
-def set_car_available(state: SystemState, car_id: str, available: bool) -> Car:
+def set_car_status(state: SystemState, car_id: str, status: str) -> Car:
+    if status not in CAR_STATUSES:
+        raise ValidationError(f"Invalid car status: {status}")
     car = get_car(state, car_id)
-    car.available = available
+    car.status = status
+    return car
+
+
+def set_car_available(state: SystemState, car_id: str, available: bool) -> Car:
+    """Backward-compatible shim.
+
+    Older modules used a boolean availability; map that onto status.
+    """
+
+    car = get_car(state, car_id)
+    if available:
+        car.status = "Available" if car.condition > 0 else "Damaged"
+    else:
+        car.status = "In Race"
     return car
 
 
@@ -43,6 +120,8 @@ def apply_damage(state: SystemState, car_id: str, damage_percent: int) -> Car:
 
     damage_points = round(100 * (damage_percent / 100.0))
     car.condition = max(0, car.condition - damage_points)
+    if car.condition <= 0:
+        car.status = "Damaged"
     return car
 
 
@@ -51,6 +130,8 @@ def repair_car(state: SystemState, car_id: str, repair_points: int) -> Car:
     if repair_points <= 0:
         raise ValidationError("Repair points must be > 0")
     car.condition = min(100, car.condition + repair_points)
+    if car.condition > 0 and car.status == "Damaged":
+        car.status = "Available"
     return car
 
 
