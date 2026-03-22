@@ -60,32 +60,32 @@ def validate_driver(state: SystemState, name: str, *, require_available: bool = 
     member = get_member(state, name)
     if member.role != "driver":
         raise ValidationError(f"Only drivers can be added to races: {name}")
-    if require_available and member.playerstatus != "Available":
+    if require_available and member.memberstatus != "Available":
         raise ValidationError(f"Driver must be Available to enter a race: {name}")
     return member
 
 
-def set_playerstatus(state: SystemState, name: str, playerstatus: str) -> CrewMember:
-    playerstatus = playerstatus.strip()
-    if playerstatus not in {"Available", "In Race", "In Mission"}:
-        raise ValidationError(f"Invalid playerstatus: {playerstatus}")
+def set_memberstatus(state: SystemState, name: str, memberstatus: str) -> CrewMember:
+    memberstatus = memberstatus.strip()
+    if memberstatus not in {"Available", "In Race", "In Mission"}:
+        raise ValidationError(f"Invalid memberstatus: {memberstatus}")
 
     member = get_member(state, name)
-    member.playerstatus = playerstatus
+    member.memberstatus = memberstatus
     return member
 
 
 def mark_in_race(state: SystemState, name: str) -> CrewMember:
     member = get_member(state, name)
-    if member.playerstatus != "Available":
-        raise ValidationError(f"Crew member already busy: {name} ({member.playerstatus})")
-    member.playerstatus = "In Race"
+    if member.memberstatus != "Available":
+        raise ValidationError(f"Crew member already busy: {name} ({member.memberstatus})")
+    member.memberstatus = "In Race"
     return member
 
 
 def mark_available(state: SystemState, name: str) -> CrewMember:
     member = get_member(state, name)
-    member.playerstatus = "Available"
+    member.memberstatus = "Available"
     return member
 
 
@@ -111,7 +111,7 @@ def require_roles_available(
         for name, member in state.crew.items():
             if name in used:
                 continue
-            if member.playerstatus == "Available" and member.role == role:
+            if member.memberstatus == "Available" and member.role == role:
                 found_name = name
                 break
 

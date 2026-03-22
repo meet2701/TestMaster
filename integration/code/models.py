@@ -28,12 +28,12 @@ class NotFoundError(StreetRaceError):
 @dataclass
 class CrewMember:
     name: str
-    role: Optional[str] = None  # e.g., driver, mechanic, strategist
+    role: Optional[str] = None  # e.g., driver, mechanic, strategist, spotter, doctor
     age: int = 0
     experience: int = 0  # 0..100
     skills: int = 0  # 0..100
     rating: int = 0
-    playerstatus: str = "Available"  # Available | In Race | In Mission
+    memberstatus: str = "Available"  # Available | In Race | In Mission
 
 
 @dataclass
@@ -89,8 +89,10 @@ class Mission:
     mission_id: str
     name: str
     required_roles: List[str]
+    description: str = ""
+    bounty: int = 0
     assigned_members: List[str] = field(default_factory=list)
-    status: str = "planned"  #planned -> active -> completed | failed
+    status: str = "aborted"  # assigned | completed | aborted
 
 
 @dataclass

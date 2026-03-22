@@ -103,7 +103,7 @@ def enter_race(state: SystemState, race_id: str, *, driver_name: str, car_id: st
     race_obj.car_id = car_id
     race_obj.status = "scheduled"
 
-    # Enforce "only one race OR one mission" via playerstatus.
+    # Enforce "only one race OR one mission" via memberstatus.
     crew.mark_in_race(state, driver_name)
 
     # Lock car.
