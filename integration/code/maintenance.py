@@ -32,33 +32,23 @@ def process_damage(state: SystemState, car_id: str, damage_percent: int) -> Car:
     return inventory.apply_damage(state, car_id, damage_percent)
 
 
-def process_race_damage(state: SystemState, car_id: str, damage_percent: int) -> Car:
-    car = inventory.apply_damage(state, car_id, damage_percent)
-
-    if damage_percent <= 0:
-        return car
-
-    # If condition is low, require mechanic and repair.
-    if car.condition < REPAIR_THRESHOLD:
-        _trigger_repair_flow(state, car_id)
-
-    return car
-
-
 def _trigger_repair_flow(state: SystemState, car_id: str) -> None:
     # Business rule: repairs require a mechanic.
     assigned = crew.require_roles_available(state, ["mechanic"])
     mechanic_name = assigned[0]
     crew.set_memberstatus(state, mechanic_name, "In Mission")
 
+    car = inventory.get_car(state, car_id)
+    if car.condition >= 100:
+        crew.mark_available(state, mechanic_name)
+        return
+
     # Keep repair simple: spend money, restore car.
-    repair_cost = 200
+    base_cost = max(100, int(car.price * 0.1)) + int((100 - car.condition) * 2)
+    repair_cost = max(100, min(2000, base_cost))
     finance.record_expense(state, repair_cost, reason=f"Repair cost for {car_id}")
 
     # Repair to full in one step.
-    car = inventory.get_car(state, car_id)
-    if car.condition >= 100:
-        return
 
     needed = 100 - car.condition
     inventory.repair_car(state, car_id, needed)
