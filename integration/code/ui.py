@@ -11,6 +11,7 @@ from typing import Callable
 from models import SystemState, StreetRaceError, ValidationError
 
 import crew
+import finance
 import inventory
 import maintenance
 import mission
@@ -667,16 +668,20 @@ def _finance_menu(state: SystemState) -> None:
     actions: dict[str, tuple[str, Callable[[], None]]] = {
         "1": ("View Income Entries", lambda: _finance_view_income(state)),
         "2": ("View Expense Entries", lambda: _finance_view_expenses(state)),
-        "3": ("Back", lambda: None),
+        "3": ("Add Income", lambda: _finance_add_income(state)),
+        "4": ("Add Expense", lambda: _finance_add_expense(state)),
+        "5": ("Back", lambda: None),
     }
 
     while True:
         print("\n=== Finance Menu ===")
-        for key in ("1", "2", "3"):
+        cash = inventory.get_cash(state)
+        print(f"Current Cash: {_fmt_money(cash)}\n")
+        for key in ("1", "2", "3", "4", "5"):
             print(f"{key}. {actions[key][0]}")
 
         choice = input("Choose an option: ").strip()
-        if choice == "3":
+        if choice == "5":
             return
 
         action = actions.get(choice)
@@ -704,6 +709,34 @@ def _finance_view_expenses(state: SystemState) -> None:
         return
     for e in entries:
         print(f"- {e.entry_id} | amount={_fmt_money(e.amount)} | reason={e.reason}")
+
+
+def _finance_add_income(state: SystemState) -> None:
+    """Add manual income to the system."""
+    print("\n--- Add Income ---")
+    amount = _prompt_int("Enter income amount: ", min_value=1)
+    reason = _read_nonempty("Enter reason for income: ")
+
+    try:
+        finance.record_income(state, amount, reason=reason)
+        print(f"Successfully added income of {_fmt_money(amount)}")
+        print(f"New cash balance: {_fmt_money(inventory.get_cash(state))}")
+    except ValidationError as exc:
+        print(f"Error: {exc}")
+
+
+def _finance_add_expense(state: SystemState) -> None:
+    """Add manual expense to the system."""
+    print("\n--- Add Expense ---")
+    amount = _prompt_int("Enter expense amount: ", min_value=1)
+    reason = _read_nonempty("Enter reason for expense: ")
+
+    try:
+        finance.record_expense(state, amount, reason=reason)
+        print(f"Successfully deducted expense of {_fmt_money(amount)}")
+        print(f"New cash balance: {_fmt_money(inventory.get_cash(state))}")
+    except ValidationError as exc:
+        print(f"Error: {exc}")
 
 
 # ---- Results module ----
