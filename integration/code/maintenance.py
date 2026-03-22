@@ -46,15 +46,12 @@ def _trigger_repair_flow(state: SystemState, car_id: str) -> None:
     # Keep repair simple: spend money, restore car.
     base_cost = max(100, int(car.price * 0.1)) + int((100 - car.condition) * 2)
     repair_cost = max(100, min(2000, base_cost))
-    finance.record_expense(state, repair_cost, reason=f"Repair cost for {car_id}")
-
-    # Repair to full in one step.
-
-    needed = 100 - car.condition
-    inventory.repair_car(state, car_id, needed)
-
-    crew.mark_available(state, mechanic_name)
-
+    try:
+        finance.record_expense(state, repair_cost, reason=f"Repair cost for {car_id}")
+        needed = 100 - car.condition
+        inventory.repair_car(state, car_id, needed)
+    finally:
+        crew.mark_available(state, mechanic_name)
 
 def request_manual_repair(state: SystemState, car_id: str) -> None:
     """Optional entry point to demonstrate maintenance without a race."""
