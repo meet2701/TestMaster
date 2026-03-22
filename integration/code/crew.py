@@ -1,7 +1,7 @@
 """Crew Management module.
 
 Responsibilities:
-- Manage roles and skill levels
+- Manage roles and availability status
 - Validate role availability for missions
 - Validate drivers for races
 
@@ -56,31 +56,36 @@ def set_role(state: SystemState, name: str, role: str) -> CrewMember:
     return member
 
 
-def set_skill_level(state: SystemState, name: str, skill_level: int) -> CrewMember:
-    registration.ensure_registered(state, name)
-
-    if skill_level < 1 or skill_level > 10:
-        raise ValidationError("Skill level must be between 1 and 10")
-
+def validate_driver(state: SystemState, name: str, *, require_available: bool = True) -> CrewMember:
     member = get_member(state, name)
-    member.skill_level = skill_level
-    return member
-
-
-def deactivate_member(state: SystemState, name: str) -> CrewMember:
-    member = get_member(state, name)
-    member.active = False
-    return member
-
-
-def validate_driver(state: SystemState, name: str, *, min_skill: int = 1) -> CrewMember:
-    member = get_member(state, name)
-    if not member.active:
-        raise ValidationError(f"Crew member is not active: {name}")
     if member.role != "driver":
         raise ValidationError(f"Only drivers can be added to races: {name}")
-    if member.skill_level < min_skill:
-        raise ValidationError(f"Driver skill too low: {name}")
+    if require_available and member.playerstatus != "Available":
+        raise ValidationError(f"Driver must be Available to enter a race: {name}")
+    return member
+
+
+def set_playerstatus(state: SystemState, name: str, playerstatus: str) -> CrewMember:
+    playerstatus = playerstatus.strip()
+    if playerstatus not in {"Available", "In Race", "In Mission"}:
+        raise ValidationError(f"Invalid playerstatus: {playerstatus}")
+
+    member = get_member(state, name)
+    member.playerstatus = playerstatus
+    return member
+
+
+def mark_in_race(state: SystemState, name: str) -> CrewMember:
+    member = get_member(state, name)
+    if member.playerstatus != "Available":
+        raise ValidationError(f"Crew member already busy: {name} ({member.playerstatus})")
+    member.playerstatus = "In Race"
+    return member
+
+
+def mark_available(state: SystemState, name: str) -> CrewMember:
+    member = get_member(state, name)
+    member.playerstatus = "Available"
     return member
 
 
@@ -106,7 +111,7 @@ def require_roles_available(
         for name, member in state.crew.items():
             if name in used:
                 continue
-            if member.active and member.role == role:
+            if member.playerstatus == "Available" and member.role == role:
                 found_name = name
                 break
 
