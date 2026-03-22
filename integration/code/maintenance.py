@@ -72,12 +72,13 @@ def use_part_on_car(state: SystemState, car_id: str, part_name: str, *, quantity
 
     if quantity <= 0:
         raise ValidationError("Quantity must be > 0")
-
-    car = inventory.get_car(state, car_id)
     
-    inventory.use_part(state, part_name, quantity)
+    car = inventory.get_car(state, car_id)
     if car.condition == 100:
-        raise ValidationError("Car does not need repair")   
+        raise ValidationError("Car does not need repair") 
+
+    inventory.use_part(state, part_name, quantity)
+      
     if car.condition < 100:
         inventory.repair_car(state, car_id, min(5*quantity, 100 - car.condition))
     return inventory.get_car(state, car_id)

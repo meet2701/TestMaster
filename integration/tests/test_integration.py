@@ -1078,7 +1078,7 @@ def test_use_part_with_insufficient_quantity():
     """
     state = SystemState()
 
-    car = inventory.add_car(state, "Honda", price=2000)
+    car = inventory.add_car(state, "Honda", price=2000, condition=85)
     inventory.add_part(state, "tire", quantity=1)
 
     # Use once - should work (no condition_boost parameter)
