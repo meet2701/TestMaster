@@ -6,7 +6,7 @@ Responsibilities:
 
 This module calls:
 - crew.validate_driver
-- inventory.get_car / inventory.set_car_available
+- inventory.get_car / inventory.set_car_status
 - finance.record_expense (entry fee)
 """
 
@@ -50,7 +50,7 @@ def enroll_driver_and_car(state: SystemState, race_id: str, driver_name: str, ca
     crew.validate_driver(state, driver_name)
 
     car = inventory.get_car(state, car_id)
-    if not car.available:
+    if car.status != "Available":
         raise ValidationError(f"Car is not available: {car_id}")
     if car.condition <= 0:
         raise ValidationError(f"Car is not drivable (condition=0): {car_id}")
@@ -63,7 +63,7 @@ def enroll_driver_and_car(state: SystemState, race_id: str, driver_name: str, ca
     race_obj.car_id = car_id
     race_obj.status = "scheduled"
 
-    inventory.set_car_available(state, car_id, False)
+    inventory.set_car_status(state, car_id, "In Race")
     return race_obj
 
 
@@ -98,6 +98,6 @@ def mark_completed(state: SystemState, race_id: str) -> Race:
 
     # Release car back to inventory.
     if race_obj.car_id:
-        inventory.set_car_available(state, race_obj.car_id, True)
+        inventory.set_car_status(state, race_obj.car_id, "Available")
 
     return race_obj
