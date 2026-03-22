@@ -34,14 +34,17 @@ def demo_flow() -> None:
     registration.register_member(state, "Aisha", role="driver", age=22, experience=8, skills=85)
     registration.register_member(state, "Dev", role="mechanic", age=26, experience=12, skills=60)
     registration.register_member(state, "Mina", role="strategist", age=24, experience=10, skills=70)
+    registration.register_member(state, "Ravi", role="spotter", age=23, experience=9, skills=65)
 
     # --- Inventory ---
     car = inventory.add_car(state, "Nissan Skyline", condition=95)
 
-    # --- Mission planning (checks role availability) ---
-    scouting = mission.create_mission(state, "Scouting Route", required_roles=["strategist"]) 
-    mission.validate_and_assign(state, scouting.mission_id)
-    mission.complete_mission(state, scouting.mission_id)
+    # --- Missions (fixed mission board) ---
+    # Assign and complete a mission that does not consume the driver.
+    missions = mission.get_all_missions(state)
+    eye_in_the_sky = next(m for m in missions if m.mission_id == "mis-0009")
+    mission.assign_mission(state, eye_in_the_sky.mission_id)
+    mission.complete_mission(state, eye_in_the_sky.mission_id)
 
     # --- Race management + Results (race ends immediately) ---
     race_obj = race.create_race(
@@ -60,7 +63,7 @@ def demo_flow() -> None:
     print("=== StreetRace Manager Demo Summary ===")
     print(f"Cash: {state.inventory.cash}")
     print(f"Cars: {[(c.car_id, c.model, c.condition, c.carstatus) for c in state.inventory.cars.values()]}")
-    print(f"Crew: {[(m.name, m.role, m.rating, m.playerstatus) for m in state.crew.values()]}")
+    print(f"Crew: {[(m.name, m.role, m.rating, m.memberstatus) for m in state.crew.values()]}")
     print(f"Rankings: {state.rankings}")
     print(f"Races: {[(r.race_id, r.name, r.status, r.driver_name, r.car_id) for r in state.races.values()]}")
     print(f"Missions: {[(m.mission_id, m.name, m.status, m.required_roles, m.assigned_members) for m in state.missions.values()]}")

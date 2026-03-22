@@ -13,6 +13,7 @@ from models import SystemState, StreetRaceError, ValidationError
 import crew
 import inventory
 import maintenance
+import mission
 import race
 import registration
 import results
@@ -29,11 +30,12 @@ def run_cli() -> None:
         "2": ("Crew Management", lambda: _crew_management_menu(state)),
         "3": ("Inventory", lambda: _inventory_menu(state)),
         "4": ("Maintenance", lambda: _maintenance_menu(state)),
-        "5": ("Race", lambda: _race_menu(state)),
-        "6": ("Results", lambda: _results_menu(state)),
-        "7": ("Other modules (placeholder)", _other_modules_placeholder),
+        "5": ("Missions", lambda: _missions_menu(state)),
+        "6": ("Race", lambda: _race_menu(state)),
+        "7": ("Results", lambda: _results_menu(state)),
         "8": ("Show Summary", lambda: _show_summary(state)),
-        "9": ("Exit", lambda: None),
+        "9": ("Finance", lambda: _finance_menu(state)),
+        "10": ("Exit", lambda: None),
     }
 
     while True:
@@ -42,7 +44,7 @@ def run_cli() -> None:
             print(f"{key}. {actions[key][0]}")
 
         choice = input("Choose an option: ").strip()
-        if choice == "9":
+        if choice == "10":
             print("Exiting.")
             return
 
@@ -139,6 +141,95 @@ def _other_modules_placeholder() -> None:
     print("Other modules are not implemented in this UI yet.")
 
 
+# ---- Missions module ----
+
+
+def _missions_menu(state: SystemState) -> None:
+    actions: dict[str, tuple[str, Callable[[], None]]] = {
+        "1": ("View Missions", lambda: _missions_view_all(state)),
+        "2": ("Assign Mission", lambda: _missions_assign(state)),
+        "3": ("Complete Mission", lambda: _missions_complete(state)),
+        "4": ("Abort Mission", lambda: _missions_abort(state)),
+        "5": ("Back", lambda: None),
+    }
+
+    while True:
+        print("\n=== Missions Menu ===")
+        for key in ("1", "2", "3", "4", "5"):
+            print(f"{key}. {actions[key][0]}")
+
+        choice = input("Choose an option: ").strip()
+        if choice == "5":
+            return
+        action = actions.get(choice)
+        if not action:
+            print("Invalid option.")
+            continue
+        action[1]()
+
+
+def _missions_view_all(state: SystemState) -> None:
+    missions = mission.get_all_missions(state)
+    print("\n--- Missions (Board) ---")
+    if not missions:
+        print("(none)")
+        return
+    for m in missions:
+        bounty_text = "Free" if m.bounty == 0 else _fmt_money(m.bounty)
+        assigned = ",".join(m.assigned_members) if m.assigned_members else "-"
+        roles = ",".join(m.required_roles)
+        print(f"- {m.mission_id} | {m.name} | roles=[{roles}] | bounty={bounty_text} | status={m.status} | assigned=[{assigned}]")
+        if m.description:
+            print(f"  {m.description}")
+
+
+def _missions_assign(state: SystemState) -> None:
+    missions = mission.get_all_missions(state)
+    available = [m for m in missions if m.status != "assigned"]
+    print("\nAssignable missions:")
+    if not available:
+        print("(none)")
+        return
+    for m in available:
+        bounty_text = "Free" if m.bounty == 0 else _fmt_money(m.bounty)
+        print(f"- {m.mission_id} | {m.name} | bounty={bounty_text} | last_status={m.status}")
+
+    mission_id = _read_nonempty("Select mission id: ")
+    m = mission.assign_mission(state, mission_id)
+    print(f"Assigned: {m.mission_id} | {m.name} | members={m.assigned_members}")
+
+
+def _missions_complete(state: SystemState) -> None:
+    missions = mission.get_all_missions(state)
+    active = [m for m in missions if m.status == "assigned"]
+    print("\nAssigned missions:")
+    if not active:
+        print("(none)")
+        return
+    for m in active:
+        print(f"- {m.mission_id} | {m.name} | members={m.assigned_members}")
+
+    mission_id = _read_nonempty("Select mission id: ")
+    m = mission.complete_mission(state, mission_id)
+    bounty_text = "Free" if m.bounty == 0 else _fmt_money(m.bounty)
+    print(f"Completed: {m.mission_id} | bounty={bounty_text}")
+
+
+def _missions_abort(state: SystemState) -> None:
+    missions = mission.get_all_missions(state)
+    active = [m for m in missions if m.status == "assigned"]
+    print("\nAssigned missions:")
+    if not active:
+        print("(none)")
+        return
+    for m in active:
+        print(f"- {m.mission_id} | {m.name} | members={m.assigned_members}")
+
+    mission_id = _read_nonempty("Select mission id: ")
+    m = mission.abort_mission(state, mission_id)
+    print(f"Aborted: {m.mission_id} | {m.name}")
+
+
 # ---- Registration module ----
 
 
@@ -196,7 +287,7 @@ def _view_registered_members(state: SystemState) -> None:
         return
     print("\n--- Crew Members ---")
     for m in members:
-        print(f"- {m.name} | role={m.role} | age={m.age} | exp={m.experience} | skills={m.skills} | rating={m.rating} | status={m.playerstatus}")
+        print(f"- {m.name} | role={m.role} | age={m.age} | exp={m.experience} | skills={m.skills} | rating={m.rating} | status={m.memberstatus}")
 
 
 # ---- Crew Management module ----
@@ -232,7 +323,7 @@ def _crew_view_all(state: SystemState) -> None:
         return
     print("\n--- All Members ---")
     for m in members:
-        print(f"- {m.name} | role={m.role} | rating={m.rating} | status={m.playerstatus}")
+        print(f"- {m.name} | role={m.role} | rating={m.rating} | status={m.memberstatus}")
 
 
 def _crew_view_by_role(state: SystemState) -> None:
@@ -243,7 +334,7 @@ def _crew_view_by_role(state: SystemState) -> None:
         print("None.")
         return
     for m in members:
-        print(f"- {m.name} | age={m.age} | exp={m.experience} | skills={m.skills} | rating={m.rating} | status={m.playerstatus}")
+        print(f"- {m.name} | age={m.age} | exp={m.experience} | skills={m.skills} | rating={m.rating} | status={m.memberstatus}")
 
 
 def _crew_view_details(state: SystemState) -> None:
@@ -256,7 +347,7 @@ def _crew_view_details(state: SystemState) -> None:
     print(f"Experience: {m.experience}")
     print(f"Skills: {m.skills}")
     print(f"Rating: {m.rating}")
-    print(f"Status: {m.playerstatus}")
+    print(f"Status: {m.memberstatus}")
 
 
 # ---- Inventory module ----
@@ -291,11 +382,14 @@ def _inventory_add_car(state: SystemState) -> None:
     name = _read_nonempty("Car name: ")
     model = _read_nonempty("Car model: ")
     condition = _prompt_int("Condition (0-100): ", min_value=0, max_value=100)
+    price = _prompt_int("Price: $", min_value=0)
 
     full_model = f"{name} {model}".strip()
 
-    car = inventory.add_car(state, full_model, condition=condition, status="Available", price=0)
-    print(f"Added car: {car.car_id} | {car.model} | condition={car.condition} | carstatus={car.carstatus}")
+    car = inventory.purchase_car(state, full_model, condition=condition, status="Available", price=price)
+    print(
+        f"Added car: {car.car_id} | {car.model} | condition={car.condition} | carstatus={car.carstatus} | price={_fmt_money(price)}"
+    )
 
 
 def _inventory_view_cars(state: SystemState) -> None:
@@ -312,17 +406,19 @@ def _inventory_view_cars(state: SystemState) -> None:
 def _inventory_add_part(state: SystemState) -> None:
     part_name = _read_nonempty("Part name: ")
     quantity = _prompt_int("Quantity: ", min_value=1)
+    unit_price = _prompt_int("Unit price: $", min_value=0)
 
-    inventory.add_part(state, part_name, quantity)
-    print(f"Added part: {part_name} x{quantity}")
+    inventory.purchase_part(state, part_name, quantity=quantity, unit_price=unit_price)
+    print(f"Added part: {part_name} x{quantity} (spent {_fmt_money(unit_price * quantity)})")
 
 
 def _inventory_add_tool(state: SystemState) -> None:
     tool_name = _read_nonempty("Tool name: ")
     quantity = _prompt_int("Quantity: ", min_value=1)
+    unit_price = _prompt_int("Unit price: $", min_value=0)
 
-    inventory.add_tool(state, tool_name, quantity)
-    print(f"Added tool: {tool_name} x{quantity}")
+    inventory.purchase_tool(state, tool_name, quantity=quantity, unit_price=unit_price)
+    print(f"Added tool: {tool_name} x{quantity} (spent {_fmt_money(unit_price * quantity)})")
 
 
 def _inventory_summary(state: SystemState) -> None:
@@ -358,16 +454,17 @@ def _maintenance_menu(state: SystemState) -> None:
     actions: dict[str, tuple[str, Callable[[], None]]] = {
         "1": ("Use Part on Car", lambda: _maintenance_use_part(state)),
         "2": ("Use Tool on Car", lambda: _maintenance_use_tool(state)),
-        "3": ("Back", lambda: None),
+        "3": ("Manual Repair", lambda: _maintenance_manual_repair(state)),
+        "4": ("Back", lambda: None),
     }
 
     while True:
         print("\n=== Maintenance Menu ===")
-        for key in ("1", "2", "3"):
+        for key in ("1", "2", "3", "4"):
             print(f"{key}. {actions[key][0]}")
 
         choice = input("Choose an option: ").strip()
-        if choice == "3":
+        if choice == "4":
             return
         action = actions.get(choice)
         if not action:
@@ -394,10 +491,16 @@ def _maintenance_use_tool(state: SystemState) -> None:
 
     car_id = _read_nonempty("Select car id: ")
     tool_name = _read_nonempty("Select tool name: ")
-    quantity = _prompt_int("Quantity: ", min_value=1)
-
-    car = maintenance.use_tool_on_car(state, car_id, tool_name, quantity=quantity)
+    car = maintenance.use_tool_on_car(state, car_id, tool_name, quantity=1)
     print(f"Updated car: {car.car_id} | condition={car.condition} | carstatus={car.carstatus}")
+
+
+def _maintenance_manual_repair(state: SystemState) -> None:
+    _print_cars(state, only_available=False)
+    car_id = _read_nonempty("Select car id: ")
+    maintenance.request_manual_repair(state, car_id)
+    car = inventory.get_car(state, car_id)
+    print(f"Repaired car: {car.car_id} | condition={car.condition} | carstatus={car.carstatus}")
 
 
 def _print_cars(state: SystemState, *, only_available: bool) -> None:
@@ -438,16 +541,17 @@ def _race_menu(state: SystemState) -> None:
         "1": ("Create Race", lambda: _race_create(state)),
         "2": ("Enter Race", lambda: _race_enter(state)),
         "3": ("Start Race (ends immediately)", lambda: _race_start(state)),
-        "4": ("Back", lambda: None),
+        "4": ("View Races", lambda: _race_view_races(state)),
+        "5": ("Back", lambda: None),
     }
 
     while True:
         print("\n=== Race Menu ===")
-        for key in ("1", "2", "3", "4"):
+        for key in ("1", "2", "3", "4", "5"):
             print(f"{key}. {actions[key][0]}")
 
         choice = input("Choose an option: ").strip()
-        if choice == "4":
+        if choice == "5":
             return
         action = actions.get(choice)
         if not action:
@@ -486,9 +590,19 @@ def _race_enter(state: SystemState) -> None:
     for r in races_open:
         print(f"- {r.race_id} | {r.name} | entry={_fmt_money(r.entry_fee)} | prizes={_fmt_money(r.prize)}/{_fmt_money(r.second_prize)}")
 
-    race_id = _read_nonempty("Select race id: ")
+    while True:
+        race_id = _read_nonempty("Select race id: ")
+        try:
+            race_obj = race.get_race(state, race_id)
+        except StreetRaceError as exc:
+            print(f"Error: {exc}")
+            continue
+        if race_obj.status != "created":
+            print(f"Race is not open for enrollment (status={race_obj.status}).")
+            continue
+        break
 
-    drivers = [m for m in state.crew.values() if m.role == "driver" and m.playerstatus == "Available"]
+    drivers = [m for m in state.crew.values() if m.role == "driver" and m.memberstatus == "Available"]
     drivers.sort(key=lambda m: m.name)
     print("\nAvailable drivers:")
     if not drivers:
@@ -516,11 +630,80 @@ def _race_start(state: SystemState) -> None:
     for r in scheduled:
         print(f"- {r.race_id} | {r.name} | driver={r.driver_name} | car={r.car_id}")
 
-    race_id = _read_nonempty("Select race id: ")
+    while True:
+        race_id = _read_nonempty("Select race id: ")
+        try:
+            race_obj = race.get_race(state, race_id)
+        except StreetRaceError as exc:
+            print(f"Error: {exc}")
+            continue
+        if race_obj.status != "scheduled":
+            print(f"Race is not scheduled (status={race_obj.status}).")
+            continue
+        break
     leaderboard = race.start_race_and_record(state, race_id)
     print("\nRace finished. Leaderboard:")
     for name, rank, score in leaderboard:
         print(f"{rank}. {name} | score={score:.2f}")
+
+
+def _race_view_races(state: SystemState) -> None:
+    races_all = list(state.races.values())
+    races_all.sort(key=lambda r: r.race_id)
+    print("\n--- Races ---")
+    if not races_all:
+        print("(none)")
+        return
+    for r in races_all:
+        print(
+            f"- {r.race_id} | {r.name} | location={r.location} | difficulty={r.track_difficulty} | status={r.status}"
+        )
+
+
+# ---- Finance module ----
+
+
+def _finance_menu(state: SystemState) -> None:
+    actions: dict[str, tuple[str, Callable[[], None]]] = {
+        "1": ("View Income Entries", lambda: _finance_view_income(state)),
+        "2": ("View Expense Entries", lambda: _finance_view_expenses(state)),
+        "3": ("Back", lambda: None),
+    }
+
+    while True:
+        print("\n=== Finance Menu ===")
+        for key in ("1", "2", "3"):
+            print(f"{key}. {actions[key][0]}")
+
+        choice = input("Choose an option: ").strip()
+        if choice == "3":
+            return
+
+        action = actions.get(choice)
+        if not action:
+            print("Invalid option.")
+            continue
+        action[1]()
+
+
+def _finance_view_income(state: SystemState) -> None:
+    entries = [e for e in state.ledger if e.kind == "income"]
+    print("\n--- Income Entries ---")
+    if not entries:
+        print("(none)")
+        return
+    for e in entries:
+        print(f"- {e.entry_id} | amount={_fmt_money(e.amount)} | reason={e.reason}")
+
+
+def _finance_view_expenses(state: SystemState) -> None:
+    entries = [e for e in state.ledger if e.kind == "expense"]
+    print("\n--- Expense Entries ---")
+    if not entries:
+        print("(none)")
+        return
+    for e in entries:
+        print(f"- {e.entry_id} | amount={_fmt_money(e.amount)} | reason={e.reason}")
 
 
 # ---- Results module ----
@@ -556,7 +739,7 @@ def _results_overall_leaderboard(state: SystemState) -> None:
         print("(none)")
         return
     for m in members:
-        print(f"- {m.name} | role={m.role} | rating={m.rating} | status={m.playerstatus}")
+        print(f"- {m.name} | role={m.role} | rating={m.rating} | status={m.memberstatus}")
 
 
 def _results_race_outcomes(state: SystemState) -> None:
@@ -583,7 +766,7 @@ def _results_race_outcomes(state: SystemState) -> None:
 def _show_summary(state: SystemState) -> None:
     print("\n=== Summary ===")
     print(f"Cash: {_fmt_money(inventory.get_cash(state))}")
-    print(f"Crew: {[(m.name, m.role, m.rating, m.playerstatus) for m in state.crew.values()]}")
+    print(f"Crew: {[(m.name, m.role, m.rating, m.memberstatus) for m in state.crew.values()]}")
     print(f"Cars: {[(c.car_id, c.model, c.condition, c.carstatus) for c in state.inventory.cars.values()]}")
     print(f"Parts: {state.inventory.parts}")
     print(f"Tools: {state.inventory.tools}")
