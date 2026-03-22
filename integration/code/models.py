@@ -32,8 +32,8 @@ class CrewMember:
     age: int = 0
     experience: int = 0  # 0..100
     skills: int = 0  # 0..100
-    skill_level: int = 1
-    active: bool = True
+    rating: int = 0
+    playerstatus: str = "Available"  # Available | In Race | In Mission
 
 
 @dataclass
@@ -41,13 +41,13 @@ class Car:
     car_id: str
     model: str
     condition: int = 100  # 0..100
-    status: str = "Available"  # Available | In Race | Damaged
+    carstatus: str = "Available"  # Available | In Race | In Mission | Damaged
     price: int = 0
 
 
 @dataclass
 class Inventory:
-    cash: int = 0
+    cash: int = 5000
     cars: Dict[str, Car] = field(default_factory=dict)
     parts: Dict[str, int] = field(default_factory=dict)
     tools: Dict[str, int] = field(default_factory=dict)
@@ -59,9 +59,19 @@ class Race:
     name: str
     entry_fee: int
     prize: int
+    location: str = ""
+    track_difficulty: int = 1  # 1..10
+    second_prize: int = 0
     driver_name: Optional[str] = None
     car_id: Optional[str] = None
+    participants: List[str] = field(default_factory=list)
     status: str = "created"  # created -> scheduled -> running -> completed
+
+
+@dataclass
+class DummyDriver:
+    name: str
+    car_name: str
 
 
 @dataclass
@@ -109,6 +119,9 @@ class SystemState:
     ledger: List[LedgerEntry] = field(default_factory=list)
 
     rankings: Dict[str, int] = field(default_factory=dict)  # driver_name -> points
+
+    dummy_drivers: List[DummyDriver] = field(default_factory=list)
+    race_results: Dict[str, List[tuple[str, int, float]]] = field(default_factory=dict)
 
     _counters: Dict[str, int] = field(default_factory=dict, repr=False)
 
