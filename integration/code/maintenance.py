@@ -92,8 +92,8 @@ def use_tool_on_car(state: SystemState, car_id: str, tool_name: str, *, quantity
     if quantity <= 0:
         raise ValidationError("Quantity must be > 0")
 
-    inventory.use_tool(state, tool_name, quantity)
     car = inventory.get_car(state, car_id)
+    inventory.use_tool(state, tool_name, quantity)
     if car.condition < 100:
         inventory.repair_car(state, car_id, min(5, 100 - car.condition))
     return inventory.get_car(state, car_id)
