@@ -10,7 +10,7 @@ from __future__ import annotations
 from models import Car, NotFoundError, SystemState, ValidationError
 
 
-CAR_STATUSES = {"Available", "In Race", "Damaged"}
+CAR_STATUSES = {"Available", "In Race", "In Mission", "Damaged"}
 
 
 def purchase_car(
@@ -79,7 +79,7 @@ def add_car(
         raise ValidationError("Car price cannot be negative")
 
     car_id = state.new_id("car")
-    car = Car(car_id=car_id, model=model, condition=condition, status=status, price=price)
+    car = Car(car_id=car_id, model=model, condition=condition, carstatus=status, price=price)
     state.inventory.cars[car_id] = car
     return car
 
@@ -91,12 +91,18 @@ def get_car(state: SystemState, car_id: str) -> Car:
         raise NotFoundError(f"Car not found: {car_id}") from exc
 
 
+def set_carstatus(state: SystemState, car_id: str, carstatus: str) -> Car:
+    if carstatus not in CAR_STATUSES:
+        raise ValidationError(f"Invalid car status: {carstatus}")
+    car = get_car(state, car_id)
+    car.carstatus = carstatus
+    return car
+
+
 def set_car_status(state: SystemState, car_id: str, status: str) -> Car:
     if status not in CAR_STATUSES:
         raise ValidationError(f"Invalid car status: {status}")
-    car = get_car(state, car_id)
-    car.status = status
-    return car
+    return set_carstatus(state, car_id, status)
 
 
 def set_car_available(state: SystemState, car_id: str, available: bool) -> Car:
@@ -107,9 +113,9 @@ def set_car_available(state: SystemState, car_id: str, available: bool) -> Car:
 
     car = get_car(state, car_id)
     if available:
-        car.status = "Available" if car.condition > 0 else "Damaged"
+        car.carstatus = "Available" if car.condition > 0 else "Damaged"
     else:
-        car.status = "In Race"
+        car.carstatus = "In Race"
     return car
 
 
@@ -121,7 +127,7 @@ def apply_damage(state: SystemState, car_id: str, damage_percent: int) -> Car:
     damage_points = round(100 * (damage_percent / 100.0))
     car.condition = max(0, car.condition - damage_points)
     if car.condition <= 0:
-        car.status = "Damaged"
+        car.carstatus = "Damaged"
     return car
 
 
@@ -130,8 +136,8 @@ def repair_car(state: SystemState, car_id: str, repair_points: int) -> Car:
     if repair_points <= 0:
         raise ValidationError("Repair points must be > 0")
     car.condition = min(100, car.condition + repair_points)
-    if car.condition > 0 and car.status == "Damaged":
-        car.status = "Available"
+    if car.condition > 0 and car.carstatus == "Damaged":
+        car.carstatus = "Available"
     return car
 
 
@@ -159,6 +165,22 @@ def use_part(state: SystemState, part_name: str, quantity: int = 1) -> None:
         state.inventory.parts.pop(part_name, None)
     else:
         state.inventory.parts[part_name] = new_value
+
+
+def use_tool(state: SystemState, tool_name: str, quantity: int = 1) -> None:
+    tool_name = tool_name.strip().lower()
+    if quantity <= 0:
+        raise ValidationError("Quantity must be > 0")
+
+    current = state.inventory.tools.get(tool_name, 0)
+    if current < quantity:
+        raise ValidationError(f"Not enough tools: {tool_name}")
+
+    new_value = current - quantity
+    if new_value == 0:
+        state.inventory.tools.pop(tool_name, None)
+    else:
+        state.inventory.tools[tool_name] = new_value
 
 
 def add_tool(state: SystemState, tool_name: str, quantity: int = 1) -> None:
