@@ -177,14 +177,14 @@ class Game:
         if prop.owner != player:
             print(f"  {player.name} does not own {prop.name}.")
             return False
-        if not prop.is_mortgaged:                              
+        if not prop.is_mortgaged:
             print(f"  {prop.name} is not mortgaged.")
             return False
-        cost = int(prop.mortgage_value() * 1.1)             
-        if player.balance < cost:                          
+        cost = int(prop.mortgage_value() * 1.1)
+        if player.balance < cost:
             print(f"  {player.name} cannot afford to unmortgage {prop.name} (${cost}).")
             return False
-        prop.unmortgage()                                     
+        prop.unmortgage()
         player.deduct_money(cost)
         self.bank.collect(cost)
         print(f"  {player.name} unmortgaged {prop.name} for ${cost}.")
