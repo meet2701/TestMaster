@@ -36,9 +36,11 @@ def register_member(
     if skills is not None:
         if skills < 0 or skills > 100:
             raise ValidationError("Skills must be between 0 and 100")
-    if age is not None and experience is not None:
+    if experience is not None:
+        if age is None:
+            raise ValidationError("Age must be provided if experience is given")
         if experience >= age:
-            raise ValidationError("Experience must be less than age")
+            raise ValidationError(...)
 
     member = CrewMember(
         name=name,
