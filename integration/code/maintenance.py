@@ -15,9 +15,9 @@ from __future__ import annotations
 
 from models import Car, SystemState, ValidationError
 
+import crew
 import finance
 import inventory
-import mission
 
 
 REPAIR_THRESHOLD = 60  # if car condition falls below this, trigger repair flow
@@ -46,14 +46,10 @@ def process_race_damage(state: SystemState, car_id: str, damage_percent: int) ->
 
 
 def _trigger_repair_flow(state: SystemState, car_id: str) -> None:
-    repair_mission = mission.create_mission(
-        state,
-        name=f"Repair vehicle {car_id}",
-        required_roles=["mechanic"],
-    )
-
-    # Business rule: missions fail if roles are unavailable.
-    mission.validate_and_assign(state, repair_mission.mission_id)
+    # Business rule: repairs require a mechanic.
+    assigned = crew.require_roles_available(state, ["mechanic"])
+    mechanic_name = assigned[0]
+    crew.set_memberstatus(state, mechanic_name, "In Mission")
 
     # Keep repair simple: spend money, restore car.
     repair_cost = 200
@@ -67,7 +63,7 @@ def _trigger_repair_flow(state: SystemState, car_id: str) -> None:
     needed = 100 - car.condition
     inventory.repair_car(state, car_id, needed)
 
-    mission.complete_mission(state, repair_mission.mission_id)
+    crew.mark_available(state, mechanic_name)
 
 
 def request_manual_repair(state: SystemState, car_id: str) -> None:
