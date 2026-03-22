@@ -30,22 +30,10 @@ import ui
 def demo_flow() -> None:
     state = SystemState()
 
-    # Seed cash so entry fees / repairs are possible.
-    finance.record_income(state, 1000, reason="Initial cash")
-
     # --- Registration + Crew management ---
-    registration.register_member(state, "Aisha")
-    registration.register_member(state, "Dev")
-    registration.register_member(state, "Mina")
-
-    crew.set_role(state, "Aisha", "driver")
-    crew.set_skill_level(state, "Aisha", 7)
-
-    crew.set_role(state, "Dev", "mechanic")
-    crew.set_skill_level(state, "Dev", 6)
-
-    crew.set_role(state, "Mina", "strategist")
-    crew.set_skill_level(state, "Mina", 5)
+    registration.register_member(state, "Aisha", role="driver", age=22, experience=8, skills=85)
+    registration.register_member(state, "Dev", role="mechanic", age=26, experience=12, skills=60)
+    registration.register_member(state, "Mina", role="strategist", age=24, experience=10, skills=70)
 
     # --- Inventory ---
     car = inventory.add_car(state, "Nissan Skyline", condition=95)
@@ -55,25 +43,24 @@ def demo_flow() -> None:
     mission.validate_and_assign(state, scouting.mission_id)
     mission.complete_mission(state, scouting.mission_id)
 
-    # --- Race management ---
-    race_obj = race.create_race(state, "Midnight Sprint", entry_fee=150, prize=600)
-    race.enroll_driver_and_car(state, race_obj.race_id, driver_name="Aisha", car_id=car.car_id)
-    race.start_race(state, race_obj.race_id)
-
-    # --- Results (updates rankings + money + maintenance) ---
-    results.record_race_outcome(
+    # --- Race management + Results (race ends immediately) ---
+    race_obj = race.create_race(
         state,
-        race_obj.race_id,
-        position=1,
-        damage_percent=50,  # triggers maintenance + repair mission if threshold crossed
-        notes="Clean launch, heavy scrape on exit.",
+        "Midnight Sprint",
+        location="Dockyard",
+        track_difficulty=6,
+        entry_fee=150,
+        prize1=600,
+        prize2=300,
     )
+    race.enter_race(state, race_obj.race_id, driver_name="Aisha", car_id=car.car_id)
+    race.start_race_and_record(state, race_obj.race_id)
 
     # Print a compact summary for the demo.
     print("=== StreetRace Manager Demo Summary ===")
     print(f"Cash: {state.inventory.cash}")
-    print(f"Cars: {[(c.car_id, c.model, c.condition, c.available) for c in state.inventory.cars.values()]}")
-    print(f"Crew: {[(m.name, m.role, m.skill_level, m.active) for m in state.crew.values()]}")
+    print(f"Cars: {[(c.car_id, c.model, c.condition, c.carstatus) for c in state.inventory.cars.values()]}")
+    print(f"Crew: {[(m.name, m.role, m.rating, m.playerstatus) for m in state.crew.values()]}")
     print(f"Rankings: {state.rankings}")
     print(f"Races: {[(r.race_id, r.name, r.status, r.driver_name, r.car_id) for r in state.races.values()]}")
     print(f"Missions: {[(m.mission_id, m.name, m.status, m.required_roles, m.assigned_members) for m in state.missions.values()]}")
