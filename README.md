@@ -7,8 +7,8 @@
 
 ## Repository Links
 
-- **GitHub Repository:** `<GITHUB_LINK_HERE>`
-- **OneDrive (complete assignment with .git):** `<ONEDRIVE_LINK_HERE>`
+- **GitHub Repository:** `https://github.com/meet2701/TestMaster`
+- **OneDrive (complete assignment with .git):** `https://iiithydstudents-my.sharepoint.com/:f:/g/personal/meet_parekh_students_iiit_ac_in/IgAlhEY6ZeFzTbWrxOxoeuwKAan-Dw4-2OvDwg3h1eazi8M?e=3vnI8m`
 
 ---
 
